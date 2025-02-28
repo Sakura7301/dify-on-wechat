@@ -3,6 +3,9 @@ import time
 import json
 import web
 from urllib.parse import urlparse
+import requests
+import cv2
+from PIL import Image
 
 from bridge.context import Context, ContextType
 from bridge.reply import Reply, ReplyType
@@ -17,6 +20,7 @@ from voice.audio_convert import mp3_to_silk
 import uuid
 
 MAX_UTF8_LEN = 2048
+
 
 @singleton
 class GeWeChatChannel(ChatChannel):
@@ -70,7 +74,7 @@ class GeWeChatChannel(ChatChannel):
             logger.info(f"[gewechat] new app_id saved: {app_id}")
             self.app_id = app_id
 
-        # 获取回调地址，示例地址：http://172.17.0.1:9919/v2/api/callback/collect  
+        # 获取回调地址，示例地址：http://172.17.0.1:9919/v2/api/callback/collect
         callback_url = conf().get("gewechat_callback_url")
         if not callback_url:
             logger.error("[gewechat] callback_url is not set, unable to start callback server")
@@ -94,7 +98,7 @@ class GeWeChatChannel(ChatChannel):
         callback_thread = threading.Thread(target=set_callback, daemon=True)
         callback_thread.start()
 
-        # 从回调地址中解析出端口与url path，启动回调服务器  
+        # 从回调地址中解析出端口与url path，启动回调服务器
         parsed_url = urlparse(callback_url)
         path = parsed_url.path
         # 如果没有指定端口，使用默认端口80
@@ -103,6 +107,78 @@ class GeWeChatChannel(ChatChannel):
         urls = (path, "channel.gewechat.gewechat_channel.Query")
         app = web.application(urls, globals(), autoreload=False)
         web.httpserver.runsimple(app.wsgifunc(), ("0.0.0.0", port))
+
+    def send_video(self, to_wxid, video_url, thumb_url, video_duration):
+        """发送视频消息
+        Args:
+            to_wxid: 接收人wxid
+            video_url: 视频URL
+            thumb_url: 视频缩略图URL
+            video_duration: 视频时长(秒)
+        Returns:
+            dict: 发送结果
+        """
+        try:
+            # 下载视频到本地临时目录
+            video_file_name = f"video_{str(uuid.uuid4())}.mp4"
+            video_file_path = TmpDir().path() + video_file_name
+
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+
+            # 下载视频
+            with requests.get(video_url, headers=headers, stream=True) as r:
+                r.raise_for_status()
+                with open(video_file_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+            # 生成缩略图
+            thumb_file_name = f"thumb_{str(uuid.uuid4())}.jpg"
+            thumb_file_path = TmpDir().path() + thumb_file_name
+
+            # 使用OpenCV读取视频第一帧作为缩略图
+            cap = cv2.VideoCapture(video_file_path)
+            ret, frame = cap.read()
+            if ret:
+                # 获取视频时长
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                video_duration = int(frame_count / fps) if fps > 0 else 10
+
+                # 保持原图尺寸
+                image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                image.save(thumb_file_path, 'JPEG', quality=95)
+            else:
+                # 如果无法读取视频帧，创建一个默认的黑色缩略图
+                image = Image.new('RGB', (480, 270), color='black')
+                image.save(thumb_file_path, 'JPEG', quality=95)
+
+            cap.release()
+
+            # 构造本地URL
+            callback_url = conf().get("gewechat_callback_url")
+            local_thumb_url = callback_url + "?file=" + thumb_file_path
+
+            # 发送视频
+            resp = self.client.post_video(
+                self.app_id,
+                to_wxid,
+                video_url,
+                local_thumb_url,  # 使用生成的缩略图
+                video_duration
+            )
+
+            if resp.get("ret")!= 200:
+                logger.error(f"[gewechat] send video failed: {resp}")
+                return None
+
+            return resp.get("data")
+
+        except Exception as e:
+            logger.error(f"[gewechat] send video error: {e}")
+            return None
 
     def send(self, reply: Reply, context: Context):
         receiver = context["receiver"]
@@ -148,6 +224,21 @@ class GeWeChatChannel(ChatChannel):
             img_url = callback_url + "?file=" + img_file_path
             self.client.post_image(self.app_id, receiver, img_url)
             logger.info("[gewechat] sendImage, receiver={}, url={}".format(receiver, img_url))
+        elif reply.type == ReplyType.VIDEO_URL:
+            try:
+                video_url = reply.content
+                # 使用视频URL作为缩略图
+                thumb_url = video_url
+                # 默认视频时长设为10秒
+                video_duration = 10
+                result = self.send_video(receiver, video_url, thumb_url, video_duration)
+                if result:
+                    logger.info(f"[gewechat] Video sent successfully to {receiver}: {video_url}")
+                else:
+                    logger.error(f"[gewechat] Failed to send video to {receiver}: {video_url}")
+            except Exception as e:
+                logger.error(f"[gewechat] send video failed: {e}")
+
 
 class Query:
     def GET(self):
@@ -177,14 +268,14 @@ class Query:
         web_data = web.data()
         logger.debug("[gewechat] receive data: {}".format(web_data))
         data = json.loads(web_data)
-        
+
         # gewechat服务发送的回调测试消息
         if isinstance(data, dict) and 'testMsg' in data and 'token' in data:
             logger.debug(f"[gewechat] 收到gewechat服务发送的回调测试消息")
             return "success"
 
         gewechat_msg = GeWeChatMessage(data, channel.client)
-        
+
         # 微信客户端的状态同步消息
         if gewechat_msg.ctype == ContextType.STATUS_SYNC:
             logger.debug(f"[gewechat] ignore status sync message: {gewechat_msg.content}")

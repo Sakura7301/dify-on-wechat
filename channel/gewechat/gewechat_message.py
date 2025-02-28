@@ -388,6 +388,11 @@ class GeWeChatMessage(ChatMessage):
             else:
                 self.ctype = ContextType.TEXT
                 self.content = content_xml
+        elif msg_type == 47 or msg_type == 43:
+            # 表情包消息，可以忽略
+            self.ctype = ContextType.STATUS_SYNC
+            self.content = msg['Data']['Content']['string']
+            return
         elif msg_type == 51:
             # msg_type = 51 表示状态同步消息，目前测试出来的情况有:
             # 1. 打开/退出某个聊天窗口
@@ -522,6 +527,9 @@ class GeWeChatMessage(ChatMessage):
                 self.is_at = '在群聊中@了你' in self.msg.get('Data', {}).get('PushContent', '')
                 logger.debug(f"[gewechat] Parse is_at from PushContent. self.is_at: {self.is_at}")
 
+            # 确保 content 是字符串
+            if not isinstance(self.content, str):
+                self.content = ''
             # 如果是群消息，使用正则表达式去掉wxid前缀和@信息
             self.content = re.sub(f'{self.actual_user_id}:\n', '', self.content)  # 去掉wxid前缀
             self.content = re.sub(r'@[^\u2005]+\u2005', '', self.content)  # 去掉@信息
@@ -577,14 +585,14 @@ class GeWeChatMessage(ChatMessage):
 
     def _is_non_user_message(self, msg_source: str, from_user_id: str) -> bool:
         """检查消息是否来自非用户账号（如公众号、腾讯游戏、微信团队等）
-        
+
         Args:
             msg_source: 消息的MsgSource字段内容
             from_user_id: 消息发送者的ID
-            
+
         Returns:
             bool: 如果是非用户消息返回True，否则返回False
-            
+
         Note:
             通过以下方式判断是否为非用户消息：
             1. 检查MsgSource中是否包含特定标签
