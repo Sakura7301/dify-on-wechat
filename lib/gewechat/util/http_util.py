@@ -9,8 +9,16 @@ def post_json(base_url, route, token, data):
 
     url = base_url + route
 
+    proxies = {
+        'http': 'http://账号:密码@ip:端口',
+        'https': 'http://账号:密码@ip:端口',
+        # 'no_proxy': 'localhost,127.0.0.1,127.0.0.1:2531,127.0.0.1,127.0.0.1:2532'
+}  
+
+
     try:
         response = requests.post(url, json=data, headers=headers, timeout=60)
+        # response = requests.post(url, json=data, headers=headers, timeout=60, proxies=proxies)
         response.raise_for_status()
         result = response.json()
 
