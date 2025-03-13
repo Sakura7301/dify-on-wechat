@@ -5,6 +5,7 @@ import time
 import openai
 import openai.error
 from bot.bot import Bot
+from datetime import datetime  
 from bot.zhipuai.zhipu_ai_session import ZhipuAISession
 from bot.zhipuai.zhipu_ai_image import ZhipuAIImage
 from bot.session_manager import SessionManager
@@ -40,13 +41,17 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
         search_prompt = """
         # 以下是来自互联网的信息：
         {search_result}
-
-        # 当前日期: 2024-XX-XX
-
         # 要求：
-        根据最新发布的信息回答用户问题，当回答引用了参考信息时，必须在句末使用对应的[ref_序号]来标明参考信息来源。
-
+        1. 根据最新发布的信息回答用户问题，当回答引用了参考信息时，你必须明确给出参考信息的来源。并且文字结尾需要说明今天的日期，格式为：[date]
         """
+
+        # 获取当前日期和时间  
+        now = datetime.now()  
+        # 提取日期部分  
+        current_date = now.date()  
+        # 格式化日期为字符串  
+        formatted_date = current_date.strftime("%Y-%m-%d")  
+        search_prompt += f"2. 今日时间为：{formatted_date}。"
         # acquire reply content
         if context.type == ContextType.TEXT:
             logger.info("[ZHIPU_AI] query={}".format(query))

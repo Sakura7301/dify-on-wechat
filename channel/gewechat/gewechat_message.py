@@ -447,7 +447,8 @@ class GeWeChatMessage(ChatMessage):
             self.ctype = ContextType.EMOJI
             self.content = self.msg_data['Content']['string']
         else:
-            raise NotImplementedError("Unsupported message type: Type:{}".format(msg_type))
+            error_str = f"Unsupported message type: Type:{msg_type}"
+            raise NotImplementedError(error_str)
 
         # 获取群聊或好友的名称
         brief_info_response = self.client.get_brief_info(self.app_id, [self.other_user_id])
