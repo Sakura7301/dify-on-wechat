@@ -302,7 +302,7 @@ class GeWeChatMessage(ChatMessage):
     def __init__(self, msg, client: GewechatClient):
         super().__init__(msg)
         self.msg = msg
-        
+
         # 添加 self.msg_data 属性，兼容 Data 和 data 字段
         self.msg_data = {}
         if 'Data' in msg:
@@ -311,7 +311,7 @@ class GeWeChatMessage(ChatMessage):
             self.msg_data = msg['data']
         else:
             logger.warning(f"[gewechat] Missing both 'Data' and 'data' in message")
-            
+
         self.create_time = self.msg_data.get('CreateTime', 0)
         if not self.msg_data:
             logger.warning(f"[gewechat] No message data available")
@@ -536,6 +536,14 @@ class GeWeChatMessage(ChatMessage):
                 self.is_at = '在群聊中@了你' in self.msg_data.get('PushContent', '')
                 logger.debug(f"[gewechat] Parse is_at from PushContent. self.is_at: {self.is_at}")
 
+            # 确保 self.content 是字符串或字节类型
+            if not isinstance(self.content, (str, bytes)):
+                self.content = str(self.content) if self.content is not None else ""
+
+            # 确保 self.actual_user_id 是字符串或字节类型
+            if not isinstance(self.actual_user_id, (str, bytes)):
+                self.actual_user_id = str(self.actual_user_id) if self.actual_user_id is not None else ""
+
             # 如果是群消息，使用正则表达式去掉wxid前缀和@信息
             self.content = re.sub(f'{self.actual_user_id}:\n', '', self.content)  # 去掉wxid前缀
             self.content = re.sub(r'@[^\u2005]+\u2005', '', self.content)  # 去掉@信息
@@ -591,14 +599,14 @@ class GeWeChatMessage(ChatMessage):
 
     def _is_non_user_message(self, msg_source: str, from_user_id: str) -> bool:
         """检查消息是否来自非用户账号（如公众号、腾讯游戏、微信团队等）
-        
+
         Args:
             msg_source: 消息的MsgSource字段内容
             from_user_id: 消息发送者的ID
-            
+
         Returns:
             bool: 如果是非用户消息返回True，否则返回False
-            
+
         Note:
             通过以下方式判断是否为非用户消息：
             1. 检查MsgSource中是否包含特定标签
