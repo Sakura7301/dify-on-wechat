@@ -131,7 +131,12 @@ ADMIN_COMMANDS = {
         "alias": ["debug", "调试模式", "DEBUG"],
         "desc": "开启机器调试日志",
     },
+    "web_search": {
+        "alias": ["web_search", "网络搜索", "WEB_SEARCH"],
+        "desc": "开启网络搜索",
+    },
 }
+
 
 def generate_temporary_password(length=12):
     """
@@ -391,6 +396,14 @@ class Godcmd(Plugin):
                             else:
                                 logger.setLevel(logging.DEBUG)
                                 ok, result = True, "DEBUG模式已开启"
+                        elif cmd == "web_search":
+                            # 判断当前是否打开网络搜索功能
+                            if bot.get_web_search_state():
+                                bot.set_web_search_state(False)
+                                ok, result = True, "WEB_SEARCH已关闭"
+                            else:
+                                bot.set_web_search_state(True)
+                                ok, result = True, "WEB_SEARCH已开启"
                         elif cmd == "plist":
                             plugins = PluginManager().list_plugins()
                             ok = True
