@@ -17,8 +17,10 @@ from common.singleton import singleton
 from common.tmp_dir import TmpDir
 from config import conf, save_config
 from lib.gewechat import GewechatClient
-from voice.audio_convert import mp3_to_silk
-
+from voice.audio_convert import mp3_to_silk, split_audio
+import uuid
+import threading
+import glob
 
 MAX_UTF8_LEN = 2048
 
@@ -255,6 +257,28 @@ class GeWeChatChannel(ChatChannel):
         elif reply.type == ReplyType.VOICE:
             # 发送语音
             self.send_voice(reply, receiver)
+        elif reply.type == ReplyType.APP:
+            try:
+                logger.debug("[gewechat] APP message raw content type: {}, content: {}".format(type(reply.content), reply.content))
+
+                # 直接使用 XML 内容
+                if not isinstance(reply.content, str):
+                    logger.error(f"[gewechat] send app message failed: content must be XML string, got type={type(reply.content)}")
+                    return
+
+                if not reply.content.strip():
+                    logger.error("[gewechat] send app message failed: content is empty string")
+                    return
+
+                # 直接发送 appmsg 内容
+                result = self.client.post_app_msg(self.app_id, receiver, reply.content)
+                logger.debug("[gewechat] sendApp, receiver={}, content={}, result={}".format(
+                    receiver, reply.content, result))
+                return result
+
+            except Exception as e:
+                logger.error(f"[gewechat] send app message failed: {str(e)}")
+                return
         # 判断回复消息类型是图片URL或图片类型
         elif reply.type == ReplyType.IMAGE_URL or reply.type == ReplyType.IMAGE:
             # 发送图片
@@ -273,61 +297,100 @@ class GeWeChatChannel(ChatChannel):
         """
         # 临时文件路径
         silk_path = None
+        temp_files = []  # 用于存储所有临时文件
 
         try:
             content = reply.content
+            if not content or not os.path.exists(content):
+                logger.error(f"[gewechat] 语音文件未找到: {content}")
+                return
 
-            # 检查文件类型
             if not content.endswith('.mp3'):
-                logger.error(f"[gewechat] 语音文件不是MP3格式: {content}")
+                logger.error(f"[gewechat] 仅支持MP3格式: {content}")
                 return
 
-            # 生成唯一的silk文件名
-            silk_path = f"{content}_{uuid.uuid4()}.silk"
-
-            # 转换MP3到silk格式
             try:
-                duration = mp3_to_silk(content, silk_path)
-            except Exception as e:
-                logger.error(f"[gewechat] MP3转换失败: {e}")
-                return
-
-            # 获取回调URL
-            callback_url = conf().get("gewechat_callback_url")
-            if not callback_url:
-                logger.error("[gewechat] 未配置回调URL")
-                return
-
-            # 构建silk文件URL
-            silk_url = f"{callback_url}?file={silk_path}"
-
-            # 发送语音
-            try:
-                res = self.client.post_voice(
-                    self.app_id,
-                    receiver,
-                    silk_url,
-                    duration
-                )
-
-                # 检查发送结果
-                if res.get('ret') != 200:
-                    logger.error(f"[gewechat] 语音发送失败: {res}")
+                # 分割音频文件
+                audio_length_ms, files = split_audio(content, 60 * 1000)
+                if not files:
+                    logger.error("[gewechat] 音频分割失败")
                     return
 
-                logger.info(
-                    f"[gewechat] 发送语音成功: 接收者={receiver}, URL={silk_url}, 时长={duration/1000.0}秒"
-                )
+                temp_files.extend(files)  # 添加分割后的文件到清理列表
+                logger.debug(f"[gewechat] 音频分割完成，共 {len(files)} 段")
 
+                # 获取每段时长
+                segment_durations = self.get_segment_durations(files)
+                tmp_dir = TmpDir().path()
+
+                # 预先转换所有文件
+                silk_files = []
+                callback_url = conf().get("gewechat_callback_url")
+
+                for i, fcontent in enumerate(files, 1):
+                    try:
+                        # 转换为SILK格式
+                        silk_name = f"{os.path.basename(fcontent)}_{i}.silk"
+                        silk_path = os.path.join(tmp_dir, silk_name)
+                        temp_files.append(silk_path)  # 添加转换后的文件到清理列表
+
+                        duration = mp3_to_silk(fcontent, silk_path)
+                        if duration > 0 and os.path.exists(silk_path):
+                            silk_url = callback_url + "?file=" + silk_path
+                            silk_files.append((silk_url, duration))
+                            logger.debug(f"[gewechat] 第 {i} 段转换成功，时长: {duration/1000:.1f}秒")
+                        else:
+                            raise Exception(f"转换失败: {fcontent}")
+
+                    except Exception as e:
+                        logger.error(f"[gewechat] 第 {i} 段转换失败: {e}")
+                        return
+
+                # 发送所有语音片段
+                for i, (silk_url, duration) in enumerate(silk_files, 1):
+                    try:
+                        self.client.post_voice(self.app_id, receiver, silk_url, duration)
+                        logger.debug(f"[gewechat] 发送第 {i}/{len(silk_files)} 段语音")
+
+                        # 固定0.3秒的发送间隔
+                        if i < len(silk_files):
+                            time.sleep(0.3)
+
+                    except Exception as e:
+                        logger.error(f"[gewechat] 发送第 {i} 段语音失败: {e}")
+                        continue
             except Exception as e:
-                logger.error(f"[gewechat] 语音发送异常: {e}")
-
-        except Exception as e:
-            logger.error(f"[gewechat] 语音处理异常: {e}")
-
+                    logger.error(f"[gewechat] 发送语音失败: {e}")
         finally:
-            # 删除临时文件
-            self._delete_temp_file(silk_path)
+            # 删除所有临时文件
+            for file_path in temp_files:
+                self._delete_temp_file(file_path)
+
+    def _delete_temp_file(self, file_path):
+        """
+        安全删除临时文件
+
+        :param file_path: 要删除的文件路径
+        """
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                logger.debug(f"已删除临时文件: {file_path}")
+        except Exception as e:
+            logger.error(f"删除临时文件时发生错误: {e}")
+
+    def get_segment_durations(self, file_paths):
+        """
+        获取每段音频的时长
+        :param file_paths: 分段文件路径列表
+        :return: 每段时长列表（毫秒）
+        """
+        from pydub import AudioSegment
+        durations = []
+        for path in file_paths:
+            audio = AudioSegment.from_file(path)
+            durations.append(len(audio))
+        return durations
 
     def send_image(self, reply, receiver):
             # 临时文件路径
@@ -481,20 +544,6 @@ class GeWeChatChannel(ChatChannel):
         except Exception as e:
             logger.error(f"获取视频信息时发生异常: {e}")
             return None, None
-
-    def _delete_temp_file(self, file_path):
-        """
-        安全删除临时文件
-
-        :param file_path: 要删除的文件路径
-        """
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                logger.debug(f"已删除临时文件: {file_path}")
-        except Exception as e:
-            logger.error(f"删除临时文件时发生错误: {e}")
-
 
 class Query:
     def GET(self):

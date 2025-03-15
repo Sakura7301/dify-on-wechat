@@ -193,7 +193,7 @@ class ChatChannel(Channel):
         reply = e_context["reply"]
         if not e_context.is_pass():
             logger.debug("[chat_channel] ready to handle context: type={}, content={}".format(context.type, context.content))
-            if context.type == ContextType.TEXT or context.type == ContextType.IMAGE_CREATE:  # 文字和图片消息
+            if context.type == ContextType.TEXT or context.type == ContextType.IMAGE_CREATE or context.type == ContextType.FILE:  # 文字和图片消息
                 context["channel"] = e_context["channel"]
                 reply = super().build_reply_content(context.content, context)
             elif context.type == ContextType.VOICE:  # 语音消息
@@ -232,8 +232,8 @@ class ChatChannel(Channel):
                 reply = self._build_friend_request_reply(context)
             elif context.type == ContextType.SHARING:  # 分享信息，当前无默认逻辑
                 pass
-            elif context.type == ContextType.FUNCTION or context.type == ContextType.FILE:  # 文件消息及函数调用等，当前无默认逻辑
-                pass
+            # elif context.type == ContextType.FUNCTION or context.type == ContextType.FILE:  # 文件消息及函数调用等，当前无默认逻辑
+            #     pass
             else:
                 logger.warning("[chat_channel] unknown context type: {}".format(context.type))
                 return
@@ -271,7 +271,7 @@ class ChatChannel(Channel):
                     reply.content = reply_text
                 elif reply.type == ReplyType.ERROR or reply.type == ReplyType.INFO:
                     reply.content = "[" + str(reply.type) + "]\n" + reply.content
-                elif reply.type == ReplyType.IMAGE_URL or reply.type == ReplyType.VOICE or reply.type == ReplyType.IMAGE or reply.type == ReplyType.FILE or reply.type == ReplyType.VIDEO or reply.type == ReplyType.VIDEO_URL:
+                elif reply.type == ReplyType.IMAGE_URL or reply.type == ReplyType.VOICE or reply.type == ReplyType.IMAGE or reply.type == ReplyType.FILE or reply.type == ReplyType.VIDEO or reply.type == ReplyType.VIDEO_URL or reply.type == ReplyType.APP:
                     pass
                 elif reply.type == ReplyType.ACCEPT_FRIEND:
                     pass

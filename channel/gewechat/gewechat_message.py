@@ -366,8 +366,13 @@ class GeWeChatMessage(ChatMessage):
             if xml_start != -1:
                 content_xml = content_xml[xml_start:]
             # Now parse the cleaned XML
-            root = ET.fromstring(content_xml)
-            appmsg = root.find('appmsg')
+            try:  
+                root = ET.fromstring(content_xml)
+                appmsg = root.find('appmsg')
+            except ET.ParseError as e:  
+                logger.error(f"XML parsing error:{e}")  
+                logger.error(f"content_xml was:{content_xml}")  
+                appmsg = None
 
             if appmsg is not None:
                 msg_type = appmsg.find('type')

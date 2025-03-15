@@ -125,34 +125,51 @@ def any_to_sil(any_path, sil_path):
     return audio.duration_seconds * 1000
 
 def mp3_to_silk(mp3_path: str, silk_path: str) -> int:
-    """Convert MP3 file to SILK format
+    """转换MP3文件为SILK格式，并优化音质
     Args:
-        mp3_path: Path to input MP3 file
-        silk_path: Path to output SILK file
+        mp3_path: MP3文件路径
+        silk_path: 输出的SILK文件路径
     Returns:
-        Duration of the SILK file in milliseconds
+        SILK文件的时长（毫秒），如果转换失败返回0
     """
-    # First load the MP3 file
-    audio = AudioSegment.from_file(mp3_path)
-    
-    # Convert to mono and set sample rate to 24000Hz
-    # TODO: 下面的参数可能需要调整
-    audio = audio.set_channels(1)
-    audio = audio.set_frame_rate(24000)
-    
-    # Export to PCM
-    pcm_path = os.path.splitext(mp3_path)[0] + '.pcm'
-    audio.export(pcm_path, format='s16le')
-    
-    # Convert PCM to SILK
-    pilk.encode(pcm_path, silk_path, pcm_rate=24000, tencent=True)
-    
-    # Clean up temporary PCM file
-    os.remove(pcm_path)
-    
-    # Get duration of the SILK file
-    duration = pilk.get_duration(silk_path)
-    return duration
+    try:
+        # 加载MP3文件
+        audio = AudioSegment.from_file(mp3_path)
+        
+        # 转换为单声道
+        audio = audio.set_channels(1)
+        
+        # 设置采样率为24kHz（SILK推荐采样率）
+        audio = audio.set_frame_rate(32000)
+        
+        # 导出为PCM格式
+        pcm_path = os.path.splitext(mp3_path)[0] + '.pcm'
+        
+        # 使用高质量参数导出
+        audio.export(pcm_path, format='s16le', parameters=["-acodec", "pcm_s16le", "-ar", "32000", "-ac", "1"])
+        
+        try:
+            # 转换为SILK格式，使用较高的质量设置
+            pilk.encode(pcm_path, silk_path, pcm_rate=32000, tencent=True, complexity=2)
+            
+            # 获取SILK文件时长
+            duration = pilk.get_duration(silk_path)
+            if duration <= 0:
+                raise Exception("Invalid SILK duration")
+                
+            return duration
+            
+        finally:
+            # 清理临时PCM文件
+            if os.path.exists(pcm_path):
+                try:
+                    os.remove(pcm_path)
+                except Exception as e:
+                    logger.warning(f"[audio_convert] 清理PCM文件失败: {e}")
+                    
+    except Exception as e:
+        logger.error(f"[audio_convert] MP3转SILK失败: {e}")
+        return 0
 
 def any_to_amr(any_path, amr_path):
     """
