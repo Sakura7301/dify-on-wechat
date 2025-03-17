@@ -54,7 +54,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
         search_prompt += f"2. 今日时间为：{formatted_date}。"
         # acquire reply content
         if context.type == ContextType.TEXT:
-            logger.info("[ZHIPU_AI] query={}".format(query))
+            logger.debug("[ZHIPU_AI] query={}".format(query))
 
             session_id = context["session_id"]
             reply = None
@@ -138,7 +138,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             if args is None:
                 args = self.args
 
-            logger.info("[ZHIPU_AI] args={}".format(args))
+            logger.debug("[ZHIPU_AI] args={}".format(args))
             response = self.client.chat.completions.create(messages=session.messages, **args)
 
             return {

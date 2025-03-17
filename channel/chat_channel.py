@@ -232,8 +232,10 @@ class ChatChannel(Channel):
                 reply = self._build_friend_request_reply(context)
             elif context.type == ContextType.SHARING:  # 分享信息，当前无默认逻辑
                 pass
-            # elif context.type == ContextType.FUNCTION or context.type == ContextType.FILE:  # 文件消息及函数调用等，当前无默认逻辑
-            #     pass
+            elif context.type == ContextType.FUNCTION or context.type == ContextType.FILE:  # 文件消息及函数调用等，当前无默认逻辑
+                pass
+            elif context.type == ContextType.EMOJI:  # EMOJI暂不支持
+                pass
             else:
                 logger.warning("[chat_channel] unknown context type: {}".format(context.type))
                 return
