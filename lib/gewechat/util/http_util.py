@@ -21,7 +21,17 @@ def post_json(base_url, route, token, data):
 
     url = base_url + route  
 
-    proxies = load_proxy_config()  # 从缓存中获取代理配置  
+    if "117.72.92.173" in base_url:
+        proxies = load_proxy_config()  # 从缓存中获取代理配置  
+    else:
+        proxies = None
+
+    # print("\n-------- HTTP请求详情 --------")  
+    # print(f"请求方法: POST")  
+    # print(f"请求URL: {url}")  
+    # print(f"请求头: {headers}")  
+    # print(f"请求体: {json.dumps(data, ensure_ascii=False, indent=2)}")  
+    # print("-----------------------------\n")  
 
     try:  
         if proxies:  

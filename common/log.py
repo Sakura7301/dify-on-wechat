@@ -24,7 +24,7 @@ def _reset_logger(log):
     #     )
     # )
     # log.addHandler(file_handle)
-    # log.addHandler(console_handle)
+    log.addHandler(console_handle)
 
 
 def _get_logger():
