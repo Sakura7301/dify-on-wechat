@@ -499,7 +499,7 @@ class GeWeChatChannel(ChatChannel):
                     img_url,
                     int(duration)
                 )
-                logger.info(f"视频发送成功: receiver={receiver}, duration={duration}")
+                logger.info(f"视频发送成功: 时长: {duration:.1f}s")
 
             except Exception as e:
                 logger.error(f"视频发送过程中出错: {e}")
