@@ -42,7 +42,7 @@ class Bridge(object):
             if model_type in [const.DIFY]:
                 self.btype["chat"] = const.DIFY
             if model_type and model_type.startswith("glm"):
-                self.btype["chat"] = const.ZHIPU_AI
+                self.btype["chat"] = const.OPEN_AI
             if model_type in [const.COZE]:
                 self.btype["chat"] = const.COZE
             if model_type and model_type.startswith("claude-3"):
