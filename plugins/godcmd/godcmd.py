@@ -135,6 +135,10 @@ ADMIN_COMMANDS = {
         "alias": ["web_search", "网络搜索", "WEB_SEARCH"],
         "desc": "开启网络搜索",
     },
+    "show_model": {
+        "alias": ["show_model", "获取可用模型", "SHOW_MODEL"],
+        "desc": "获取当前可用的模型列表",
+    }
 }
 
 
@@ -253,6 +257,23 @@ class Godcmd(Plugin):
         self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
         logger.info("[Godcmd] inited")
 
+    def get_usable_models(self):
+        """
+        获取当前可用模型
+        :return: list
+        """
+        models = []
+        models.append("\n")
+        models.append(const.GPT35)
+        models.append(const.GLM_4_FLASH)
+        models.append(const.GLM_4_PLUS)
+        models.append(const.GLM_ZERO)
+        models.append(const.DEEPSEEK_CHAT)
+        models.append(const.DEEPSEEK_R1)
+        models.append(const.YI_34B)
+        models.append(const.YI_VI_PLUS)
+        return "\n".join(models)
+
     def on_handle_context(self, e_context: EventContext):
         context_type = e_context["context"].type
         if context_type != ContextType.TEXT:
@@ -313,10 +334,11 @@ class Godcmd(Plugin):
                         model = conf().get("model") or const.GPT35
                         ok, result = True, "当前模型为: " + str(model)
                     elif len(args) == 1:
-                        if args[0] not in const.MODEL_LIST:
+                        model_name = self.model_mapping(args[0])
+                        if model_name is None:
                             ok, result = False, "模型名称不存在"
                         else:
-                            conf()["model"] = self.model_mapping(args[0])
+                            conf()["model"] = model_name
                             Bridge().reset_bot()
                             model = conf().get("model") or const.GPT35
                             ok, result = True, "模型设置为: " + str(model)
@@ -404,6 +426,10 @@ class Godcmd(Plugin):
                             else:
                                 bot.set_web_search_state(True)
                                 ok, result = True, "WEB_SEARCH已开启"
+                        elif cmd == "show_model":
+                            # 获取当前可用模型
+                            models = self.get_usable_models()
+                            ok, result = True, "当前可用模型为: " + str(models)
                         elif cmd == "plist":
                             plugins = PluginManager().list_plugins()
                             ok = True
@@ -526,7 +552,22 @@ class Godcmd(Plugin):
     def model_mapping(self, model) -> str:
         if model == "gpt-4-turbo":
             return const.GPT4_TURBO_PREVIEW
-        return model
+        elif model == "glm-4-flush":
+            return const.GLM_4_FLASH
+        elif model == "glm-4-plus":
+            return const.GLM_4_PLUS
+        elif model == "glm-zero-preview" or model == "glm-zero":
+            return const.GLM_ZERO
+        elif model == "deepseek" or model == "deepseek-chat" or model == "deepseekchat" or model == "deepseek-v3":
+            return const.DEEPSEEK_CHAT
+        elif model == "deepseek-r1" or model == "deepseek-reasoner":
+            return const.DEEPSEEK_R1
+        elif model == "yi-34b-chat-0205" or model == "yi-34b-chat-0205":
+            return const.YI_34B
+        elif model == "yi-vl-plus" or model == "yi-vi":
+            return const.YI_VI_PLUS
+        else:
+            return None
 
     def reload(self):
         gconf = pconf(self.name)

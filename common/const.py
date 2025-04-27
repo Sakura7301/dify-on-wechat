@@ -67,12 +67,13 @@ GEMINI_20_flash_exp = "gemini-2.0-flash-exp"
 
 GLM_4 = "glm-4"
 GLM_4_PLUS = "glm-4-plus"
-GLM_4_flash = "glm-4-flash"
+GLM_4_FLASH = "glm-4-flash"
 GLM_4_LONG = "glm-4-long"
 GLM_4_ALLTOOLS = "glm-4-alltools"
 GLM_4_0520 = "glm-4-0520"
 GLM_4_AIR = "glm-4-air"
 GLM_4_AIRX = "glm-4-airx"
+GLM_ZERO = "glm-zero-preview"
 
 
 CLAUDE_3_OPUS = "claude-3-opus-latest"
@@ -84,7 +85,10 @@ CLAUDE_3_SONNET = "claude-3-sonnet-20240229"
 CLAUDE_3_HAIKU = "claude-3-haiku-20240307"
 
 DEEPSEEK_CHAT = "deepseek-chat"  # DeepSeek-V3对话模型
-DEEPSEEK_REASONER = "deepseek-reasoner"  # DeepSeek-R1模型
+DEEPSEEK_R1 = "deepseek-reasoner"  # DeepSeek-R1模型
+
+YI_34B = "yi-34b-chat-0205"
+YI_VI_PLUS = "yi-vl-plus"
 
 GITEE_AI_MODEL_LIST = ["Yi-34B-Chat", "InternVL2-8B", "deepseek-coder-33B-instruct", "InternVL2.5-26B", "Qwen2-VL-72B", "Qwen2.5-32B-Instruct", "glm-4-9b-chat", "codegeex4-all-9b", "Qwen2.5-Coder-32B-Instruct", "Qwen2.5-72B-Instruct", "Qwen2.5-7B-Instruct", "Qwen2-72B-Instruct", "Qwen2-7B-Instruct", "code-raccoon-v1", "Qwen2.5-14B-Instruct"]
 
@@ -93,7 +97,9 @@ MODEL_LIST = [
               O1, O1_MINI, GPT_4o, GPT_4O_0806, GPT_4o_MINI, GPT4_TURBO, GPT4_TURBO_PREVIEW, GPT4_TURBO_01_25, GPT4_TURBO_11_06, GPT4, GPT4_32k, GPT4_06_13, GPT4_32k_06_13,
               WEN_XIN, WEN_XIN_4,
               XUNFEI,
-              ZHIPU_AI, GLM_4, GLM_4_PLUS, GLM_4_flash, GLM_4_LONG, GLM_4_ALLTOOLS, GLM_4_0520, GLM_4_AIR, GLM_4_AIRX,
+              ZHIPU_AI, GLM_4, GLM_4_PLUS, GLM_4_FLASH, GLM_4_LONG, GLM_4_ALLTOOLS, GLM_4_0520, GLM_4_AIR, GLM_4_AIRX, GLM_ZERO, 
+              DEEPSEEK_CHAT,DEEPSEEK_R1, 
+              YI_34B, YI_VI_PLUS,
               MOONSHOT, MiniMax,
               GEMINI, GEMINI_PRO, GEMINI_15_flash, GEMINI_15_PRO,GEMINI_20_flash_exp,
               CLAUDE_3_OPUS, CLAUDE_3_OPUS_0229, CLAUDE_35_SONNET, CLAUDE_35_SONNET_1022, CLAUDE_35_SONNET_0620, CLAUDE_3_SONNET, CLAUDE_3_HAIKU, "claude", "claude-3-haiku", "claude-3-sonnet", "claude-3-opus", "claude-3.5-sonnet",
@@ -101,7 +107,6 @@ MODEL_LIST = [
               QWEN, QWEN_TURBO, QWEN_PLUS, QWEN_MAX,
               LINKAI_35, LINKAI_4_TURBO, LINKAI_4o,
               DIFY, COZE,
-              DEEPSEEK_CHAT, DEEPSEEK_REASONER
             ]
 
 MODEL_LIST = MODEL_LIST + GITEE_AI_MODEL_LIST
